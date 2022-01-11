@@ -1,0 +1,250 @@
+# 轻巧创建全新的Ubuntu 虚拟机
+
+## 1. 获取 Ubuntu 官网提供的虚拟机镜像（已安装好的磁盘镜像）
+
+1.1. 浏览页面 https://cloud-images.ubuntu.com/releases/bionic/release/ 查找 `-server-cloudimg-amd64.img   ` 后缀的最新镜像，复制其下载地址。（目前是：https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.img）
+
+1.2. 进入放置虚拟机镜像的目录，后面的操作都会基于这个目录
+
+```sh
+cd /data
+```
+
+注意：不一定要是`/data`，任意目录都可以，根据当前机器上磁盘分区的使用情况，找到合适的目录即可。
+
+1.3. 下载虚拟机镜像到当前目录
+
+```sh
+curl -k -LO https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.img
+```
+
+下载完成后可以用 ls 命令确认 `ubuntu-18.04-server-cloudimg-amd64.img` 文件存在
+
+```sh
+ls
+# 输出：
+# ubuntu-18.04-server-cloudimg-amd64.img
+```
+
+1.4. 重命名文件名为 `ubuntu-18-{姓名拼音}.qcow2`，带上使用者的姓名拼音是为了方便后期维护管理。
+
+```sh
+# 设置 MY_NAME 环境变量，注意这个环境变量后面会一直用到
+MY_NAME=myname
+
+mv  ubuntu-18.04-server-cloudimg-amd64.img  ubuntu-18-${MY_NAME}.qcow2
+```
+
+## 2. 定制虚拟机镜像
+
+2.1. 首先需要给虚拟机内的磁盘扩容，需要使用 libguestfs 工具链，但是本机不一定有安装，这里选择使用 `bkahlert/libguestfs` docker 镜像，把本地镜像挂入容器内执行命令：
+
+```sh
+docker run -it --rm \
+  -v "${PWD}:/data" \
+  -w /data \
+  -u "$(id -u):$(id -g)" \
+  --entrypoint /usr/bin/env \
+  bkahlert/libguestfs \
+  -- qemu-img resize ubuntu-18-${MY_NAME}.qcow2 100G
+```
+
+上面的命令只是把虚拟机内部的磁盘空间设置为100G，`ubuntu-18-${MY_NAME}.qcow2` 的大小不变，大概为300M~400M，根据使用 `ubuntu-18-${MY_NAME}.qcow2` 文件会自动增长，但是这样性能不好（文件的对应磁盘空间可能不连续），可以预先把文件的大小也拓展到100G
+
+```
+dd if=/dev/zero bs=1G seek=100 count=0 of=ubuntu-18-${MY_NAME}.qcow2
+```
+
+确认拓展后的文件大小为100G：
+
+```
+ls -alh ubuntu-18-${MY_NAME}.qcow2
+```
+
+2.2. 需要更改虚拟机镜像的用户密码（默认用户名为ubuntu），当前使用的 Ubuntu Could 镜像比较特殊，需要定制一个包含用户密码的iso镜像，然后让这个iso镜像**每次**都随虚拟机启动，实现修改用户密码的效果。
+
+需要先安装 cloud-image-utils 包：
+
+```sh
+apt install cloud-image-utils
+```
+
+然后定制 cloud-config 文件，创建文件 `cloud-config-${MY_NAME}.txt`：
+
+```sh
+cat >cloud-config-${MY_NAME}.txt <<EOF
+#cloud-config
+password: 12345
+chpasswd: { expire: False }
+ssh_pwauth: True
+hostname: localhost
+EOF
+```
+
+注意：上面的12345就是用户密码
+
+最终生成 `cloud-config-${MY_NAME}.iso` 文件
+
+```sh
+cloud-localds cloud-config-${MY_NAME}.iso cloud-config-${MY_NAME}.txt
+
+# cloud-config 可以删除了
+rm cloud-config-${MY_NAME}.txt
+```
+
+## 3. 运行虚拟机
+
+3.1. 创建并且启动虚拟机
+
+```sh
+virt-install \
+  --name ubuntu-18-${MY_NAME} \
+  --os-type=Linux \
+  --vcpus 8 \
+  --memory 16384 \
+  --disk path=cloud-config-${MY_NAME}.iso,device=cdrom \
+  --disk path=ubuntu-18-${MY_NAME}.qcow2,device=disk --import \
+  --network network=default,model=virtio \
+  --graphics none \
+  --noautoconsole
+```
+
+参数解释：
+```
+--name ubuntu-18-${MY_NAME}        虚拟机名称
+
+--vcpus 8        分配8个cpu核心
+
+--memory 16384    分配16G内存
+
+--disk path=cloud-config-${MY_NAME}.iso,device=cdrom        使用前面步骤创建的 `cloud-config-${MY_NAME}.iso` 文件作为光盘
+
+  --disk path=ubuntu-18-${MY_NAME}.qcow2,device=disk --import        使用前面步骤创建的 `ubuntu-18-${MY_NAME}.qcow2` 文件作为磁盘
+
+--network network=default,model=virtio        使用NAT网络，只分配内部ip，目前使用足够了
+```
+
+
+3.2. 确认虚拟机正常运行
+
+```sh
+virsh list
+```
+
+根据命令行输出确认虚拟机正在运行状态
+
+3.3. 查看虚拟机的NAT内部IP（动态）
+
+```sh
+virsh domifaddr ubuntu-18-${MY_NAME}
+```
+
+本例中得到的动态ip是 `192.168.122.119`
+
+3.4. 使用ssh登入虚拟机，默认用户名为 `ubuntu`，密码为前面设置的`12345`
+
+```
+ssh ubuntu@192.168.122.119
+```
+
+登入虚拟机后，修改root用户密码（注意这是在虚拟机中操作）：
+
+```sh
+sudo passwd
+```
+
+根据提示，可以设置root用户密码为123abc。
+
+修改ssh配置，允许ssh使用root用户登陆（注意这是在虚拟机中操作）：
+
+```sh
+sudo sed -i 's|^#PermitRootLogin prohibit-password$|PermitRootLogin yes|' /etc/ssh/sshd_config 
+```
+
+重新加载ssh配置（注意这是在虚拟机中操作）
+
+```sh
+sudo systemctl reload sshd
+```
+
+完成后`exit`退出ssh，重新以root用户登陆（密码123abc）：
+
+```
+ssh root@192.168.122.119
+```
+
+虚拟机的内部IP是DHCP分配的动态ip，需要设置为静态，方便后续使用（注意这是在虚拟机中操作）：
+
+```sh
+eval "$(ip route get 8.8.8.8 | sed -En 's|^.* via ([^ ]+) dev ([^ ]+) src ([^ ]+) .*$|GATEWAY=\1\nINTERFACE=\2\nIP=\3|p')"
+cat >/etc/netplan/50-cloud-init.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    ${INTERFACE}:
+      dhcp4: no
+      addresses:
+        - ${IP}/24
+      gateway4: ${GATEWAY}
+      nameservers:
+        addresses: [223.5.5.5, 223.6.6.6]
+EOF
+```
+
+注意：上面的脚本不需要修改，直接复制执行就可以。
+
+确认无误（注意这是在虚拟机中操作）：
+
+```sh
+cat /etc/netplan/50-cloud-init.yaml
+```
+
+重启虚拟机（注意这是在虚拟机中操作，不要重启物理机）：
+
+```sh
+shutdown -r now
+```
+
+## 4. 暴露虚拟机 SSH(22) 端口
+
+本例中的虚拟机ip `192.168.122.119` 是NAT网络分配的内部ip，只能在主机（物理机）上访问。
+
+为了能从外部网络访问虚拟机，可以用socat命令把虚拟机的22端口转发到主机（物理机）上的端口:
+
+```sh
+docker run -d --name=ssh-${MY_NAME} --restart=always --net=host alpine/socat \
+    tcp-listen:22119,fork,reuseaddr tcp4-connect:192.168.122.119:22
+```
+
+上述命令把 `192.168.122.119:22` 转发到主机上的 `22119` 端口，举例主机的ip为 `172.0.10.210` 可以在外部使用ssh命令登入虚拟机：
+
+```sh
+ssh -p 22119 root@172.0.10.210
+```
+
+## 5. 删除虚拟机
+
+暴力关闭虚拟机
+
+```sh
+virsh destroy ubuntu-18-${MY_NAME}
+```
+
+删除虚拟机配置
+
+```sh
+virsh undefine ubuntu-18-${MY_NAME}
+```
+
+删除虚拟机镜像文件
+
+```sh
+rm ubuntu-18-${MY_NAME}.qcow2 cloud-config-${MY_NAME}.iso
+```
+
+删除用于端口转发的docker镜像
+
+```sh
+docker rm -f ssh-${MY_NAME}
+```
+
