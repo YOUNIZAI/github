@@ -1,10 +1,11 @@
-### 代码托管平台
+### 代码托管平台(gitlab)
+2
  ```
- 1. gitlab 作为托管平台
- 2. git    代码版本控制
-    2.1 .gitignore
-    2.2  
- 3. docker 容器化
-    3.1 dockerfile  构建容器
-    3.2
+ - git
+   -- code version
+   -- .gitignore
+   -- git config
+ -gitlab
+   -- .gitlab-ci.yaml
+   -- gitlab: merge->comment->e-mail->jira;build images;save images;auto test 
  ```
