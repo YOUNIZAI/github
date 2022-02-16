@@ -5,6 +5,17 @@
 2. 通过log 找到大概 crash 堆栈地址    
 3. 命令 addr2line -Cfe <可执行文件> <地址>
 ```
+```
+从镜像里面获取 步骤：
+1.docker pull registry.gitlab.casa-systems.com/mobility/smf/sm:xxx
+2.sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm:xxx sh
+3. 新打开一个命令终端，执行：
+ sudo docker cp 容器ID:/opt/casa/smf/sm/smfsm ./
+ === note: 容器ID 通过docker ps 来找到
+4. addr2line -Cfe ./smfsm 45fa43
+
+```
+
 Now we saw this in SQA's test env.
 1. Ask SQA which image they are used in this case.
 casa@mec7:~$ sudo docker ps
