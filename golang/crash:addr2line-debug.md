@@ -23,15 +23,15 @@ Now we saw this in SQA's test env.
 <br>casa@mec7:~$ sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm:xxx sh
 
 3. casa@mec7:~$ sudo docker ps
-CONTAINER ID        IMAGE                                                               COMMAND                   CREATED             STATUS              PORTS               NAMES
-90a1d369437d        registry.gitlab.casa-systems.com/mobility/smf/sm:xxx                    "./smfsm"                 2 hours ago         Up 2 hours                              
+<br>CONTAINER ID        IMAGE                                                               COMMAND                   CREATED             STATUS              PORTS               <br>NAMES
+<br>90a1d369437d        registry.gitlab.casa-systems.com/mobility/smf/sm:xxx                    "./smfsm"                 2 hours ago         Up 2 hours                              
 4. Copy smfsm to VM which have addr2line tool.
-"docker cp <container id/name>:<the path of executable file>  <copy to where>"
-casa@mec7:~$ sudo docker cp 90a1d369437d:/opt/casa/smf/sm/smfsm ./
+<br>"docker cp <container id/name>:<the path of executable file>  <copy to where>"
+<br>casa@mec7:~$ sudo docker cp 90a1d369437d:/opt/casa/smf/sm/smfsm ./
  
 5. Using addr2line to find the line.
-addr2line -Cfe <the path of executable file>  <hex of where crash(backtrace)>
-casa@mec7:~$ addr2line -Cfe ./smfsm 45fa43          
+<br>addr2line -Cfe <the path of executable file>  <hex of where crash(backtrace)>
+<br>casa@mec7:~$ addr2line -Cfe ./smfsm 45fa43          
 
 ### method 2
  Thank you for the crash debugging steps! In cases where we have a good crash stack we can also use disassemble -l which I had sent before for debugging crash.
