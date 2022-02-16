@@ -1,4 +1,10 @@
 ### method 1
+思路：
+```
+1. 获取可执行文件：方法1： 自己编译源代码， 脚本：build_docker.sh  方法2： 从镜像里面获取（这个可以查资料 了解一下）  
+2. 通过log 找到大概 crash 堆栈地址    
+3. 命令 addr2line -Cfe <可执行文件> <地址>
+```
 Now we saw this in SQA's test env.
 1. Ask SQA which image they are used in this case.
 casa@mec7:~$ sudo docker ps
