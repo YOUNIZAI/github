@@ -20,7 +20,7 @@ Now we saw this in SQA's test env.
 1. docker pull image registry.gitlab.casa-systems.com/mobility/smf/sm:xxx
 
 2. Run the image if container is not running anymore.
-casa@mec7:~$ sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm:xxx sh
+<br>casa@mec7:~$ sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm:xxx sh
 
 3. casa@mec7:~$ sudo docker ps
 CONTAINER ID        IMAGE                                                               COMMAND                   CREATED             STATUS              PORTS               NAMES
