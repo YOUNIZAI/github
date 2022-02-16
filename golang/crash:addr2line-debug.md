@@ -17,22 +17,21 @@
 ```
 
 Now we saw this in SQA's test env.
-1. Ask SQA which image they are used in this case.
-casa@mec7:~$ sudo docker ps
-CONTAINER ID        IMAGE                                                               COMMAND                   CREATED             STATUS              PORTS               NAMES
-90a1d369437d        registry.gitlab.casa-systems.com/mobility/smf/sm                    "./smfsm"                 2 hours ago         Up 2 hours                              k8s_axsvc_smf3-smfsm-55b7dfbb84-xwrz7_smf3_8966c260-8b1b-488f-8c06-45f610bce7f9_0
+1. docker pull image registry.gitlab.casa-systems.com/mobility/smf/sm:xxx
+
 2. Run the image if container is not running anymore.
-casa@mec7:~$ sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm sh
-/opt/casa/smf/sm # 
-3. Copy smfsm to VM which have addr2line tool.
-docker cp <container id/name>:<the path of executable file>  <copy to where>
+casa@mec7:~$ sudo docker run -it registry.gitlab.casa-systems.com/mobility/smf/sm:xxx sh
+
+3. casa@mec7:~$ sudo docker ps
+CONTAINER ID        IMAGE                                                               COMMAND                   CREATED             STATUS              PORTS               NAMES
+90a1d369437d        registry.gitlab.casa-systems.com/mobility/smf/sm:xxx                    "./smfsm"                 2 hours ago         Up 2 hours                              
+4. Copy smfsm to VM which have addr2line tool.
+"docker cp <container id/name>:<the path of executable file>  <copy to where>"
 casa@mec7:~$ sudo docker cp 90a1d369437d:/opt/casa/smf/sm/smfsm ./
-casa@mec7:~$ sudo scp ./smfsm root@172.0.10.211:/git/
-4. Using addr2line to find the line.
+ 
+5. Using addr2line to find the line.
 addr2line -Cfe <the path of executable file>  <hex of where crash(backtrace)>
-root@git211:/git# addr2line -Cfe ./smfsm 45fa43          
-runtime.sigtramp
-/opt/casa/sdk/go/src/runtime/sys_linux_amd64.s:359
+casa@mec7:~$ addr2line -Cfe ./smfsm 45fa43          
 
 ### method 2
  Thank you for the crash debugging steps! In cases where we have a good crash stack we can also use disassemble -l which I had sent before for debugging crash.
