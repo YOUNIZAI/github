@@ -33,6 +33,9 @@ find ./ -name "*"|xargs grep "/data/" #查询匹配结果
 
 find ./ -type f -path "*.sh"|xargs sed -i 's:/data/:/databak/:g'   #查找并替换
 
+方法四：
+sed -E -z -i 's/\n\s*x-kubernetes-list-map-keys:\n\s*- port\n\s*- protocol\n\s*x-kubernetes-list-type: map//g' operators/axyom/config/crd/bases/*.yaml
+
 ```
 
 
