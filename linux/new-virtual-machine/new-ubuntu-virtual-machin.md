@@ -248,3 +248,251 @@ rm ubuntu-18-${MY_NAME}.qcow2 cloud-config-${MY_NAME}.iso
 docker rm -f ssh-${MY_NAME}
 ```
 
+================
+docker run -it --rm \
+  -v "${PWD}:/mnt/sdc1/weiguohong" \
+  -w /mnt/sdc1/weiguohong \
+  -u "$(id -u):$(id -g)" \
+  --entrypoint /usr/bin/env \
+  bkahlert/libguestfs \
+  -- qemu-img resize ubuntu-18-wgh.qcow2 100G
+  
+  
+dd if=/dev/zero bs=1G seek=100 count=0 of=ubuntu-18-wgh.qcow2
+
+ls -alh ubuntu-18-wgh.qcow2
+
+
+cat >cloud-config-wgh.txt <<EOF
+#cloud-config
+password: 12345
+chpasswd: { expire: False }
+ssh_pwauth: True
+hostname: localhost
+EOF
+
+cloud-localds cloud-config-wgh.iso cloud-config-wgh.txt
+
+  
+virt-install \
+  --name ubuntu-18-wgh \
+  --os-type=linux \
+  --vcpus 8 \
+  --memory 16384 \
+  --disk path=cloud-config-wgh.iso,device=cdrom \
+  --disk path=ubuntu-18-wgh.qcow2,device=disk --import \
+  --network network=default,model=virtio \
+  --graphics none \
+  --noautoconsole
+
+NOTE:可以设置 network 为桥接模式:https://www.jianshu.com/p/51ce8858c35c
+  
+  
+sudo sed -i 's|^#PermitRootLogin prohibit-password$|PermitRootLogin yes|' /etc/ssh/sshd_config
+
+eval "$(ip route get 8.8.8.8 | sed -En 's|^.* via ([^ ]+) dev ([^ ]+) src ([^ ]+) .*$|GATEWAY=\1\nINTERFACE=\2\nIP=\3|p')"
+
+
+cat >/etc/netplan/50-cloud-init.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    ens2:
+      dhcp4: no
+      addresses:
+        - 192.168.122.168/24
+        - 192:168:122:168:8e5:7dff:feac:e101/64
+      gateway4: 192.168.122.1
+      nameservers:
+        addresses: [223.5.5.5, 223.6.6.6]
+    ens5:
+      dhcp4: false
+      addresses:
+        - 172.0.14.169/24
+      gateway4: 172.0.14.1
+      nameservers:
+        addresses: [8.8.8.8, 114.114.114.114] 
+EOF
+
+
+network:
+    ethernets:
+        enp1s0:
+            dhcp4: false
+            addresses:
+            - 172.0.14.53/24
+            gateway4: 172.0.14.1
+            nameservers:
+                addresses:
+                - 8.8.8.8
+                - 114.114.114.114
+                search: []
+    version: 2
+
+
+
+
+cat >/etc/netplan/50-cloud-init.yaml <<EOF
+network:
+    ethernets:
+        ens2:
+            dhcp4: false
+            addresses:
+            - 172.0.14.169/24
+            gateway4: 172.0.14.1
+            nameservers:
+                addresses:
+                - 8.8.8.8
+                - 114.114.114.114
+                search: []
+    version: 2
+EOF
+
+network:
+  ethernets:
+    ens3:
+        addresses:
+        - 172.0.14.48/24
+        dhcp4: false
+        gateway4: 172.0.14.1
+        nameservers:
+            addresses:
+            - 114.114.114.114
+            search: []
+    ens9:
+        addresses:
+        - 172.1.14.48/16
+        dhcp4: false
+  version: 2
+
+# This file is generated from information provided by the datasource.  Changes
+# to it will not persist across an instance reboot.  To disable cloud-init's
+# network configuration capabilities, write a file
+# /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:
+# network: {config: disabled}
+network:
+  ethernets:
+    ens2:
+        addresses:
+        - 172.0.14.48/24
+        dhcp4: false
+        gateway4: 172.0.14.1
+        nameservers:
+            addresses:
+            - 114.114.114.114
+            search: []
+    ens9:
+        addresses:
+        - 172.1.14.48/16
+        dhcp4: false
+  version: 2
+  
+ ========给vm 添加网卡
+ 1) 物理主机上给vm 添加网卡
+ https://blog.csdn.net/weixin_39094034/article/details/105373163
+ 2) 到vm 上给网卡添加ip //https://cloud-atlas.readthedocs.io/zh_CN/latest/linux/ubuntu_linux/network/netplan.html#:~:text=Netplan%E5%85%81%E8%AE%B8%E9%80%9A%E8%BF%87YAML%E6%8A%BD%E8%B1%A1%E6%9D%A5%E9%85%8D%E7%BD%AE%E7%BD%91%E7%BB%9C%E6%8E%A5%E5%8F%A3%EF%BC%8C%E5%9C%A8%20NetworkManager%20%E5%92%8C,systemd-networkd%20%E7%BD%91%E7%BB%9C%E6%9C%8D%E5%8A%A1%EF%BC%88%E5%BC%95%E7%94%A8%E4%B8%BA%20renderers%29%E7%BB%93%E5%90%88%E5%85%B1%E5%90%8C%E5%B7%A5%E4%BD%9C%E3%80%82
+ 
+ e.g: 给ens5 添加ip
+ cat >/etc/netplan/50-cloud-init.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    ens2:
+      dhcp4: no
+      addresses:
+        - 192.168.122.168/24
+        - 192:168:122:168:8e5:7dff:feac:e101/64
+      gateway4: 192.168.122.1
+      nameservers:
+        addresses: [223.5.5.5, 223.6.6.6]
+    ens5:
+      dhcp4: false
+      addresses:
+        - 172.0.14.169/24
+      gateway4: 172.0.14.1
+      nameservers:
+        addresses: [8.8.8.8, 114.114.114.114] 
+EOF
+
+
+3) netplant apply
+
+4) may be to stop NAT network dev:
+ifconfig [NIC_NAME] Down/Up
+https://zhuanlan.zhihu.com/p/65480107
+NOTE: vm 重起后，还是重新开启该网卡
+
+5) 宿主机 移除vm 的网卡： https://www.zabbx.cn/archives/virsh%E6%96%B0%E5%A2%9E%E5%88%A0%E9%99%A4%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BD%91%E5%8D%A1
+
+======================新vm 基础环境=============
+### 1.win & vm 共享文件
+```sh
+1) install smab
+
+2) updat smab config
+
+3) service samb start
+
+4) win connect vm
+
+refer to: https://blog.csdn.net/hh3167253066/article/details/120528201
+``` 
+### 2. install git
+```sh
+1) apt install git
+
+2) git connnect to github/gitlab: https://juejin.cn/post/6844904005152276494
+
+```
+
+### 3.install rke2 
+```sh
+refer to : ubuntu 虚拟机部署 rke2 环境  http://172.0.14.219:85/zh/Linux/deploy-rke2
+```
+NOTE: 
+问题1：pull images  出现失败显示证书失败，linux 需要安装证书：
+```sh
+cat >/usr/share/ca-certificates/extra/rootCA.crt <<EOF
+-----BEGIN CERTIFICATE-----
+MIIDxjCCAq6gAwIBAgIQMf6njx2+HKhIOAtihJNAkzANBgkqhkiG9w0BAQsFADBV
+MRMwEQYKCZImiZPyLGQBGRYDY29tMRwwGgYKCZImiZPyLGQBGRYMY2FzYS1zeXN0
+ZW1zMSAwHgYDVQQDExdjYXNhLXN5c3RlbXMtQ0FTQUNBMS1DQTAeFw0yMjA5Mjkx
+OTUyNDBaFw0yNzA5MjkyMDAyNDBaMFUxEzARBgoJkiaJk/IsZAEZFgNjb20xHDAa
+BgoJkiaJk/IsZAEZFgxjYXNhLXN5c3RlbXMxIDAeBgNVBAMTF2Nhc2Etc3lzdGVt
+cy1DQVNBQ0ExLUNBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA+TMv
+7+HcU1od+eZudxrYWGX3I5wbOngAm0dTRyF51YfggiTtsixR9Ri6zwc4HMqETEV9
+3x4RfziD6jE+4P3HNnf39TFZ5JPRy3NK3JbiVSBjJrlhhxQC3YfIdPqFIUWpcgxn
+H1CFIh7AxDOqnBVITrAhZ79wElvwfuR2v9Z1lLL0QCSmuVc0hhUVgE/45T2LJUkX
+sBfZDcWX47dj/UI18DsmnJqzeepeg5izwkuppuVUxAUBw9xsNNRScjaY2gv469eF
+J4sBeQ5b2lF1nlZP+B0ju8o9/XxRp//Y0MmMG/hz6S7teXOgTifUvgG4GefYVezb
+puewNHrSyaOgIiuDmwIDAQABo4GRMIGOMBMGCSsGAQQBgjcUAgQGHgQAQwBBMA4G
+A1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBT+ezcNk5Vg
+ph+Do6mpIx+pKb89zzASBgkrBgEEAYI3FQEEBQIDAgACMCMGCSsGAQQBgjcVAgQW
+BBTbSllRujduMuzDI4Sv44PS+uyFsTANBgkqhkiG9w0BAQsFAAOCAQEAx+pcRuQ2
+nv2+Quf+yxkVLs/0C7HdQb98gRMcnACSaktyNCt1mdodazrBHAlJZotn5aQUf+zp
+nhlTh4FnNTfP4HKDoxdGUjGJFU3U3NH6uYl0ijeuoXeZ9YCFlnNslOUUsSSmJ/Ch
+J8B8IYR3um6Do7MARn3Z56/dRPKMNcF6s8o4pGIHBlzRoxK98QunsWtp62tNaaGV
+zcLSwdjKX3tivi3hTaxPRFeNjJ7HoUnJGpTPSZKmT+7VKSiHiplTJNAOPX4RFI6w
+Y+56SJjNFbzZ1sr2JzB3RdVSsmWmpZOpEm76NB4kZGWP8I3QRNChaCpVbKuRolOx
+55VVpbdAKoL0rw==
+-----END CERTIFICATE-----
+EOF
+
+cat >>/etc/ca-certificates.conf<<EOF
+/extra/rootCA.crt
+EOF
+
+sudo update-ca-certificates
+```
+
+### 4.搭建测试集群环境
+现在跑 k8s 有三种方式：
+
+1. robert 方式，部署 TMC 公共集群，跑 pipeline;
+2. 手动测试目录1，也需要部署 TMC 公共集群，导出并修改成k8s可以直接apply的配置，然后跑测试；
+3. 手动测试目录2，既可以使用 TMC 公共集群，也可以使用私人集群，跟之前 tekton 运行方式类似，唯一要做的就是把tmc的yaml配置转换成kubectl可以直接apply的配置（目前钉钉就是这种做法）
+NOTE: 为何 统一使用方式1 ? 需要调研下可行性（之前没有用TEKTON是因为1. 耗时很久。 2. 很多问题是TEKTON自己引起的，多了太多维护工作
+
+
+
+  

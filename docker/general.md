@@ -7,3 +7,6 @@
 -  docker system df 
 -  docker volume rm $(docker volume ls -qf dangling=true)
 
+3. docker rmi more images
+docker images  |grep smf/sm |grep gcs |awk   '{print }' | xargs docker rmi 
+
